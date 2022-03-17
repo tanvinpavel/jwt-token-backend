@@ -3,17 +3,30 @@ const app = express();
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const PORT = 4500;
+const {tokenValidator} = require('./middleware/jwtAuth');
+//store token in cookie (name session work as cookie)
+const cookieParser = require('cookie-parser');
 
-app.use(cors());
-app.use(express.json())
+
+const middleware = [
+    cors(),
+    express.json(),
+    cookieParser('12345')
+]
+app.use(middleware);
 
 app.get('/', (req, res) => {
     console.log('wow this get method is work fine');
+    res.send('this is home');
 
 })
 
+app.get('/home', tokenValidator, (req, res) => {
+    res.send('this is home');
+})
+
 // user jodi varifyed hoi tahole ei method a aste parbe
-app.post('/api/posts', varifyToken, (req, res) => {
+app.post('/api/posts', (req, res) => {
 
     // AUthoraization
     // varify token sematricc from npm
@@ -40,21 +53,6 @@ app.post('/api/posts', varifyToken, (req, res) => {
 // 2lyIHVkZGluIiwiZW1haWwiOiJldmFuamFoaWQzMjFAZ21haWwuY
 // 29tIn0sImlhdCI6MTY0NzM3Nzg2MH0.QlgveXdJqZ6IlZO4u0K4bBIjYGHk_-t9s6_T3atGYEU
 
-function varifyToken(req, res, next) {
-    const bearerHeader = req.headers.auth
-
-    if (typeof bearerHeader !== 'undefined') {
-        const bearer = bearerHeader.split(' '); // token fully array ke 2vag kore just token ta nibo
-        const bearertoken = bearer[1];
-        req.token = bearertoken;
-
-
-        next();
-    } else {
-        res.sendStatus(403)
-    }
-
-}
 
 
 // login
@@ -72,21 +70,27 @@ app.post('/api/login', (req, res) => {
 
     // }
    
-    const inputvalue = req.body.inputValue
-    const passvalue = req.body.passValue
-    console.log(inputvalue, passvalue);
+    const inputvalue = req.body.inputValue;
+    const passvalue = req.body.passValue;
 
-
-    // npm json website theka async newa
-
-    jwt.sign({
-        inputvalue, passvalue
-    }, "privateKey", function (err, token) {
-        res.send(token);
-        console.log(token);
-    });
-
-
+    if(inputvalue === 'pavel@gmail.com' && passvalue === '12345'){
+        //create jwt 
+        // jwt.sign({
+        //     inputvalue, passvalue
+        // }, "privateKey", function (err, token) {
+        //     if(err){
+        //         res.status(504).json('authentication error');
+        //     }else{
+        //         req.session.isLoggedIn = true;
+        //         // res.setHeader('Set-Cookie', 'isLoggedIn=true');
+        //         res.send('login success');
+        //     }
+        // });
+        res.cookie('username', 'john doe', { maxAge: 900000, httpOnly: true, signed: true, secret: '12345' });
+        res.send('hello');
+    }else{
+        res.status(504).json('authentication error');
+    }
 })
 
 
