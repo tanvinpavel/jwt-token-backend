@@ -58,18 +58,6 @@ app.post('/api/posts', (req, res) => {
 // login
 // frontend sample
 app.post('/api/login', (req, res) => {
-    // console.log('this is a post method');
-
-
-    // sample user like frontend
-
-    // const user = {
-    //     id: 1,
-    //     username: 'jakir uddin',
-    //     email: 'evanjahid321@gmail.com'
-
-    // }
-   
     const inputvalue = req.body.inputValue;
     const passvalue = req.body.passValue;
 
