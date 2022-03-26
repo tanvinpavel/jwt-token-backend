@@ -1,23 +1,17 @@
-exports.tokenValidator = (req, res, next) => {
-    // console.log(req.headers);
-    // const bearerHeader = req.headers.authorization;
+const jwt = require('jsonwebtoken')
 
-    // if (typeof bearerHeader !== 'undefined') {
-    //     const jwtToken = bearerHeader.split('bearer '); // token fully array ke 2vag kore just token ta nibo
-        
-    //     //verifying token
-    //     jwt.verify(jwtToken, "privateKey", (err, decode) => {
-    //         if(err){
-    //             next('authentication token invalid');
-    //         }else{
-    //             console.log(decode);
-    //             next();
-    //         }
-    //     });
-    // } else {
-    //     res.send('your are not logged in');
-    // }
-    console.log(req.signedCookies);
-    console.log(req.cookies);
+exports.tokenValidator = (req, res, next) => {
+    const tokenStr = req.get('Authorization');
+    if(!tokenStr) return res.send('token not found');
+    
+    const token = tokenStr.replace('Bearer ', '');
+
+    try {
+        const data = jwt.verify(token, 'jwtSecret');
+        req.user = data;
+    } catch (error) {
+        res.send('Authorization failed');
+    }
+
     next();
 }
