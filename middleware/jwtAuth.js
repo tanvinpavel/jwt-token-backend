@@ -10,7 +10,7 @@ exports.tokenValidator = (req, res, next) => {
         const data = jwt.verify(token, 'jwtSecret');
         req.user = data;
     } catch (error) {
-        res.send('Authorization failed');
+        res.sendStatus(403);
     }
 
     next();

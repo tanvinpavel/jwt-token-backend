@@ -24,11 +24,24 @@ const users = [
 
 let refreshTokens = [];
 
+const whiteList = ['http://127.0.0.1:4500', 'http://localhost:3000'];
+
+const corsOption = {
+    origin: (origin, callback) => {
+        if(whiteList.indexOf(origin) !== -1 || !origin){
+            callback(null, true);
+        }else{
+            callback(new Error(`Not allowed by CORS, ${origin}`));
+        }
+    },
+    credentials: true,
+    optionSuccessStatus: 200
+}
 
 const middleware = [
-    cors(),
+    cors(corsOption),
     express.json(),
-    cookieParser('12345')
+    cookieParser(),
 ]
 app.use(middleware);
 
@@ -47,23 +60,22 @@ app.post('/api/posts', (req, res) => {
 
 })
 
-app.post('/api/refresh', (req, res) => {
-    const rToken = req.body.refreshToken;
-    if(!rToken) return res.send('token not found');
-    if(!refreshTokens.includes(rToken)) return res.send('token not found in server');
-    jwt.verify(rToken, 'jwtsecret', (err, data) => {
+app.get('/api/refresh', (req, res) => {
+    const cookies = req.cookies;
+    // console.log(cookies);
+    if(!cookies?.jwt) return res.sendStatus(401);
+
+    const refreshToken = cookies.jwt;
+
+    if(!refreshTokens.includes(refreshToken)) return res.send('token not found in server');
+    jwt.verify(refreshToken, 'jwtsecret', (err, data) => {
         if(err){
-            res.send(err);
+            res.sendStatus(403);
         }else{
-            refreshTokens = refreshTokens.filter(token => token !== rToken);
             try {
-                const newToken = jwt.sign({id: data.id, isAdmin: data.isAdmin}, 'jwtSecret', { expiresIn: '15s' });
-                const newRefresh = jwt.sign({id: data.id, isAdmin: data.isAdmin}, 'jwtsecret');
-                refreshTokens.push(newRefresh);
+                const newAccessToken = jwt.sign({id: data.id, isAdmin: data.isAdmin}, 'jwtSecret', { expiresIn: '15s' });
                 res.json({
-                    'new': true,
-                    'token': newToken,
-                    'refresh': newRefresh
+                    token: newAccessToken
                 });
             }
             catch (error) {
@@ -77,22 +89,29 @@ app.post('/api/refresh', (req, res) => {
 // frontend sample
 app.post('/api/login', async (req, res) => {
     const {username, password} =  req.body;
-
+    // console.log(req.body);
     const auth = users.find(u => {
         return u.username === username && u.password === password;
     });
 
     if(auth){
         try {
-            const token = jwt.sign({ id: auth.id, isAdmin: auth.isAdmin }, 'jwtSecret', { expiresIn: '15s' });
-            const refresh = jwt.sign({ id: auth.id, isAdmin: auth.isAdmin }, 'jwtsecret');
+            const token = jwt.sign({ id: auth.id, isAdmin: auth.isAdmin }, 'jwtSecret', { expiresIn: '5s' });
+            const refresh = jwt.sign({ id: auth.id, isAdmin: auth.isAdmin }, 'jwtsecret', {expiresIn: '1d'});
             refreshTokens.push(refresh);
+
+            res.cookie('jwt', refresh, {httpOnly: true, maxAge: 24*60*60*1000});
+            // console.log({
+            //     id: auth.id,
+            //     username: auth.username,
+            //     isAdmin: auth.isAdmin,
+            //     token
+            // });
             res.json({
                 id: auth.id,
                 username: auth.username,
                 isAdmin: auth.isAdmin,
-                token,
-                refresh
+                token
             });
         }
         catch (error) {
@@ -101,10 +120,11 @@ app.post('/api/login', async (req, res) => {
     }else{
         res.status(401).json('authentication failed');
     }
-})
+});
 
 app.delete('/api/delete/:id', tokenValidator, (req, res) => {
     const id = req.params.id;
+    // console.log(id);
 
     if(id === req.user.id || req.user.isAdmin){
         res.send(`id=${req.user.id} is delete id=${id} successfully`);
@@ -113,12 +133,17 @@ app.delete('/api/delete/:id', tokenValidator, (req, res) => {
     }
 });
 
-app.post('/api/logout', tokenValidator, (req, res) => {
-    const refreshToken = req.body.refresh;
+app.get('/api/logout', (req, res) => {
+    const cookies = req.cookies;
+    if(!cookies?.jwt) return res.sendStatus(204);
+    const refreshToken = cookies?.jwt;
 
-    refreshTokens = refreshTokens.filter(token => token !== refreshToken);
+    if(refreshTokens.indexOf(refreshToken) !== -1){
+        refreshTokens = refreshTokens.filter(token => token !== refreshToken);
 
-    res.send('you are logout');
+        res.clearCookie('jwt', {httpOnly: true, sameSite: 'None', secure: true});
+        res.sendStatus(204);
+    }
 })
 
 
